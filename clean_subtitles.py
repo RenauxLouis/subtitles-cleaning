@@ -18,7 +18,8 @@ MAP_LANGUAGES = {
 
 def remove_mkv_subs(full_fname, full_fname_no_sub):
     print("Removing subtitles from original .mkv file")
-    subprocess.check_output([".\mkvmerge.bat", "-o", full_fname_no_sub, "--no-subtitles", full_fname], stderr=subprocess.STDOUT)
+    subprocess.check_output([".\mkvmerge.bat", "-o", full_fname_no_sub, "--no-subtitles", full_fname],
+                            stderr=subprocess.STDOUT)
     print("Subtitles removed")
 
 def extract_mkv_subs(str_file):
@@ -27,16 +28,12 @@ def extract_mkv_subs(str_file):
                                         stderr=subprocess.STDOUT)
 
 
-def add_subs(full_fname_no_sub, full_fname_with_sub, str_to_add):
+def add_subs(full_fname_no_sub, full_fname_with_sub, srt_to_add):
     print("Adding subtitles")
-    print(full_fname_with_sub)
-    print(full_fname_no_sub)
-    print(str_to_add[0])
     subprocess.check_output([".\mkvmerge.bat", "-o", full_fname_with_sub,
-                            full_fname_no_sub, str_to_add[0]],
+                            full_fname_no_sub] + srt_to_add,
                                         stderr=subprocess.STDOUT)
     print("Subtitles added")
-    sys.exit()
 
 
 def extract_subs(str_files):
@@ -73,7 +70,8 @@ def get_mkv_track_id(file_path):
 
 def clean_and_rename_subs(str_file_list, languages):
     print("Opening SRT files to select the languages")
-    str_to_add = []
+    srt_to_add = []
+    lang_code_to_add = []
     for str_file in str_file_list:
         str_fpath = str_file["srt_full_path"]
         try:
@@ -94,16 +92,39 @@ def clean_and_rename_subs(str_file_list, languages):
                         for line in cleaned_lines:
                             fo.write(line + "\n")
 
-                    str_to_add.append(new_name)
+                    srt_to_add.append(new_name)
+                    lang_code_to_add.append(language_detected)
         except UnicodeDecodeError:
             print("Can't open {} because of UnicodeDecodeError".format(str_fpath))
             continue
-    return str_to_add
+    return srt_to_add, lang_code_to_add
 
 
 def clean_sub(lines):
     cleaned_lines = lines
     return cleaned_lines
+
+
+def add_language_titles(full_fname_with_sub, full_fname_with_sub_and_lang, lang_code_to_add):
+    print("Adding language titles")
+
+    lang_ids = [str(i+2) + ":" + code for i, code in enumerate(lang_code_to_add)]
+    print(lang_ids)
+    list_languages_parsed = " ".join(["--language " + lang_id for lang_id in lang_ids]).split(" ")
+    list_subprocess = [".\mkvmerge.bat", "-o", full_fname_with_sub_and_lang, *list_languages_parsed, full_fname_with_sub]
+    print(" ".join(list_subprocess))
+
+    # test = "subs/with-lang-codes4.mkv"
+    # list_subprocess = ".\mkvmerge.bat -o " + full_fname_with_sub_and_lang + " --language 2:en --language 3:es --language 4:fr subs/money_heist_4_1_with_sub.mkv"
+    # list_subprocess = ".\mkvmerge.bat -o subs/with-lang-codes4.mkv --language 2:en --language 3:es --language 4:fr subs/money_heist_4_1_with_sub.mkv".split(" ")
+    # list_subprocess = [".\mkvmerge.bat", "-o", full_fname_with_sub_and_lang, "--language", "2:en", "--language", "3:es", "--language", "4:fr", "subs\money_heist_4_1_with_sub.mkv"]
+    # list_subprocess = list_subprocess.split(" ")
+    subprocess.check_output(list_subprocess, stderr=subprocess.STDOUT)
+
+    print("Language titles added")
+    sys.exit()
+
+
 
 def main(folder, languages):
     for root, dirs, files in os.walk(folder):
@@ -134,12 +155,15 @@ def main(folder, languages):
 
                 full_fname_no_sub = full_fname.replace(".mkv", "_no_sub.mkv")
                 full_fname_with_sub = full_fname.replace(".mkv", "_with_sub.mkv")
+                full_fname_with_sub_and_lang = full_fname.replace(".mkv", "_with_sub_and_lang.mkv")
                 # Copies the .mkv files without subtitles in it
-                remove_mkv_subs(full_fname, full_fname_no_sub)
+                # remove_mkv_subs(full_fname, full_fname_no_sub)
                 # Clean all .srt files and rename according to language
-                str_to_add = clean_and_rename_subs(str_file_list, languages)
+                srt_to_add, lang_code_to_add = clean_and_rename_subs(str_file_list, languages)
                 # Add .srt files to .mkv
-                add_subs(full_fname_no_sub, full_fname_with_sub, str_to_add)
+                # add_subs(full_fname_no_sub, full_fname_with_sub, srt_to_add)
+                # Add language title to .mkv
+                add_language_titles(full_fname_with_sub, full_fname_with_sub_and_lang, lang_code_to_add)
                 """
                 os.remove(full_fname)
                 os.rename(full_fname_with_sub, full_fname)
