@@ -4,12 +4,16 @@ import os
 import subprocess
 from langdetect import detect
 import codecs
+import re
 
 
 MAP_LANGUAGES = {
     "en": "english",
     "es": "spanish",
     "fr": "french"
+}
+CHAR_TUPLES_TO_REMOVE = {
+    ("[", "]")
 }
 
 
@@ -97,7 +101,11 @@ def clean_and_rename_subs(str_file_list, languages):
 
 
 def clean_sub(lines):
-    cleaned_lines = lines
+    for char_tuple in CHAR_TUPLES_TO_REMOVE:
+        open_char = char_tuple[0]
+        close_char = char_tuple[1]
+        cleaned_lines = [re.sub(r"\o[^)]*\c".replace("o", open_char).replace("c", close_char), "", line) for line in lines]
+
     return cleaned_lines
 
 
@@ -160,7 +168,6 @@ def main(folder, languages):
                         os.remove(os.path.join(root, item))
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", default="subs")
@@ -168,10 +175,11 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
 if __name__ == "__main__":
     args = parse_args()
+
     folder = args.folder
     languages = args.languages
 
     main(folder=folder, languages=languages)
-
