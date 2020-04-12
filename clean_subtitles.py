@@ -19,15 +19,15 @@ CHAR_TUPLES_TO_REMOVE = {
 }
 
 
-def remove_mkv_subs(full_fname, full_fname_no_sub):
+def remove_mkv_subs(full_fname_mkv, full_fname_no_sub):
     print("2. Removing subtitles from original .mkv file")
-    subprocess.check_output([".\mkvmerge.bat", "-o", full_fname_no_sub, "--no-subtitles", full_fname],
+    subprocess.check_output([".\mkvmerge.bat", "-o", full_fname_no_sub, "--no-subtitles", full_fname_mkv],
                             stderr=subprocess.STDOUT)
 
 
-def extract_mkv_subs(str_file):
-    subprocess.check_output([".\mkvextract.bat", "tracks", str_file["mkv_full_path"],
-                    str_file["srt_track_id"] + ":" + str_file["srt_full_path"]],
+def extract_mkv_subs(mkv_full_path, srt_track_id, srt_full_path):
+    subprocess.check_output([".\mkvextract.bat", "tracks", mkv_full_path,
+                             srt_track_id + ":" + srt_full_path],
                                         stderr=subprocess.STDOUT)
 
 
@@ -36,20 +36,6 @@ def add_subs(full_fname_no_sub, full_fname_with_sub, srt_to_add):
     subprocess.check_output([".\mkvmerge.bat", "-o", full_fname_with_sub,
                             full_fname_no_sub] + srt_to_add,
                                         stderr=subprocess.STDOUT)
-
-
-def extract_subs(str_files):
-    print("*****************************")
-    print("Directory: {d}".format(d=str_files[0]["root_folder"]))
-    print("File: {f}".format(f=str_files[0]["mkv_fname"]))
-    print("1. Extract subtitles from .mkv")
-    for str_file in tqdm(str_files):
-        if not str_file["srt_track_id"]:
-            sys.exit("srt track without track id")
-        elif str_file["srt_exists"]:
-            continue
-        else:
-            extract_mkv_subs(str_file)
 
 
 def get_mkv_track_id(file_path):
@@ -115,48 +101,54 @@ def add_language_titles(full_fname_with_sub, full_fname_with_sub_and_lang, lang_
     subprocess.check_output(list_subprocess, stderr=subprocess.STDOUT)
 
 
+def get_existing_srt(folder, basename):
+    files_in_dir = os.listdir(folder)
+    list_str = [os.path.join(folder, file) for file in files_in_dir if os.path.splitext(file)[1] == ".srt" and basename in os.path.splitext(file)[0]]
+    return list_str
+
+def get_embedded_str(mkv_full_path, track_id_int):
+    if track_id_int >= 2:
+        track_ids = [str(num) for num in range(2, track_id_int + 1)]
+    else:
+        return []
+
+    for srt_track_id in track_ids:
+        srt_full_path = os.path.join(root, basename + "_{}_.srt".format(_id))
+        extract_mkv_subs(mkv_full_path, srt_track_id, srt_full_path)
+
+    return str_file_list
+
+
 def main(folder, languages):
     for root, dirs, files in os.walk(folder):
         for fname in files:
-            str_file_list = []
             basename, ext = os.path.splitext(fname)
-            full_fname = os.path.join(root, fname)
+
             if ext == ".mkv":
-                track_id = get_mkv_track_id(os.path.join(root, fname))
-                track_id_int = int(track_id)
-                if track_id_int >= 2:
-                    track_ids = [str(num) for num in range(2, track_id_int + 1)]
 
-                for _id in track_ids:
-                    srt_full_path = os.path.join(root, basename + "_{}_.srt".format(_id))
-                    srt_exists = os.path.isfile(srt_full_path)
-                    str_file_list.append({"mkv_fname": fname,
-                                        "mkv_basename": basename,
-                                        "mkv_extension": ext,
-                                        "root_folder": root,
-                                        "mkv_full_path": full_fname,
-                                        "srt_track_id": _id,
-                                        "srt_full_path": srt_full_path,
-                                        "srt_exists": srt_exists
-                                        })
-                # Gets all the subtitles from the .mkv and creates .srt files
-                extract_subs(str_file_list)
+                full_fname_mkv = os.path.join(root, fname)
+                track_id_int = int(get_mkv_track_id(os.path.join(root, fname)))
 
-                full_fname_no_sub = full_fname.replace(".mkv", "_no_sub.mkv")
-                full_fname_with_sub = full_fname.replace(".mkv", "_with_sub.mkv")
-                full_fname_with_sub_and_lang = full_fname.replace(".mkv", "_with_sub_and_lang.mkv")
+                existing_list_str = get_existing_srt(root, basename)
+                embedded_list_str = get_embedded_str(mkv_full_path, track_id_int)
+                list_str = existing_list_str + embedded_list_str
+
+                full_fname_no_sub = full_fname_mkv.replace(".mkv", "_no_sub.mkv")
+                full_fname_with_sub = full_fname_mkv.replace(".mkv", "_with_sub.mkv")
+                full_fname_with_sub_and_lang = full_fname_mkv.replace(".mkv", "_with_sub_and_lang.mkv")
                 # Copies the .mkv files without subtitles in it
-                remove_mkv_subs(full_fname, full_fname_no_sub)
+                remove_mkv_subs(full_fname_mkv, full_fname_no_sub)
                 # Clean all .srt files and rename according to language
                 srt_to_add, lang_code_to_add = clean_and_rename_subs(str_file_list, languages)
                 # Add .srt files to .mkv
                 add_subs(full_fname_no_sub, full_fname_with_sub, srt_to_add)
                 # Add language title to .mkv
                 add_language_titles(full_fname_with_sub, full_fname_with_sub_and_lang, lang_code_to_add)
-                os.remove(full_fname)
+                # Remove temp files
+                os.remove(full_fname_mkv)
                 os.remove(full_fname_no_sub)
                 os.remove(full_fname_with_sub)
-                os.rename(full_fname_with_sub_and_lang, full_fname)
+                os.rename(full_fname_with_sub_and_lang, full_fname_mkv)
                 # Remove all .srt
                 for item in os.listdir(root):
                     if item.endswith(".srt"):
