@@ -1,10 +1,7 @@
 import sys
 import argparse
 import os
-import re
 import subprocess
-from subliminal import save_subtitles, scan_video, region, download_best_subtitles
-from babelfish import Language
 from langdetect import detect
 import codecs
 
