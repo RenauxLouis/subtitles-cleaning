@@ -6,6 +6,7 @@ from langdetect import detect
 import codecs
 import re
 import glob
+from tqdm import tqdm
 
 
 MAP_LANGUAGES = {
@@ -19,10 +20,9 @@ CHAR_TUPLES_TO_REMOVE = {
 
 
 def remove_mkv_subs(full_fname, full_fname_no_sub):
-    print("Removing subtitles from original .mkv file")
+    print("2. Removing subtitles from original .mkv file")
     subprocess.check_output([".\mkvmerge.bat", "-o", full_fname_no_sub, "--no-subtitles", full_fname],
                             stderr=subprocess.STDOUT)
-    print("Subtitles removed")
 
 
 def extract_mkv_subs(str_file):
@@ -32,26 +32,23 @@ def extract_mkv_subs(str_file):
 
 
 def add_subs(full_fname_no_sub, full_fname_with_sub, srt_to_add):
-    print("Adding subtitles")
+    print("4. Adding subtitles")
     subprocess.check_output([".\mkvmerge.bat", "-o", full_fname_with_sub,
                             full_fname_no_sub] + srt_to_add,
                                         stderr=subprocess.STDOUT)
-    print("Subtitles added")
 
 
 def extract_subs(str_files):
     print("*****************************")
     print("Directory: {d}".format(d=str_files[0]["root_folder"]))
     print("File: {f}".format(f=str_files[0]["mkv_fname"]))
-    for str_file in str_files:
-        print(str_file["srt_full_path"])
-        if str_file["srt_exists"]:
-            print("    Subtitles ready. Nothing to do.")
+    print("1. Extract subtitles from .mkv")
+    for str_file in tqdm(str_files):
+        if not str_file["srt_track_id"]:
+            sys.exit("srt track without track id")
+        elif str_file["srt_exists"]:
             continue
-        elif not str_file["srt_track_id"]:
-            print("    No embedded subtitles found.")
         else:
-            print("    Embedded subtitles found.")
             extract_mkv_subs(str_file)
 
 
@@ -69,7 +66,7 @@ def get_mkv_track_id(file_path):
 
 
 def clean_and_rename_subs(str_file_list, languages):
-    print("Opening SRT files to select the languages")
+    print("3. Opening SRT files to select the languages")
     srt_to_add = []
     lang_code_to_add = []
     for str_file in str_file_list:
@@ -97,7 +94,6 @@ def clean_and_rename_subs(str_file_list, languages):
         except UnicodeDecodeError:
             print("Can't open {} because of UnicodeDecodeError".format(str_fpath))
             continue
-    print("Languages selected")
     return srt_to_add, lang_code_to_add
 
 
@@ -111,14 +107,12 @@ def clean_sub(lines):
 
 
 def add_language_titles(full_fname_with_sub, full_fname_with_sub_and_lang, lang_code_to_add):
-    print("Adding language titles")
+    print("5. Adding language titles")
     lang_ids = [str(i+2) + ":" + code for i, code in enumerate(lang_code_to_add)]
     list_languages_parsed = " ".join(["--language " + lang_id for lang_id in lang_ids]).split(" ")
     list_subprocess = [".\mkvmerge.bat", "-o", full_fname_with_sub_and_lang, *list_languages_parsed, full_fname_with_sub]
 
     subprocess.check_output(list_subprocess, stderr=subprocess.STDOUT)
-
-    print("Language titles added")
 
 
 def main(folder, languages):
