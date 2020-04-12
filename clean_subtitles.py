@@ -5,6 +5,7 @@ import subprocess
 from langdetect import detect
 import codecs
 import re
+import glob
 
 
 MAP_LANGUAGES = {
