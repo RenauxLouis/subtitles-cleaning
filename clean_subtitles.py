@@ -51,35 +51,30 @@ def get_mkv_track_id(file_path):
         raise Exception("Extraction of track ID failed")
 
 
-def clean_and_rename_subs(str_file_list, languages):
+def clean_and_rename_subs(srt_fpaths, languages):
     print("3. Opening SRT files to select the languages")
     srt_to_add = []
     lang_code_to_add = []
-    for str_file in str_file_list:
-        str_fpath = str_file["srt_full_path"]
-        try:
-            with open(str_fpath, "r", encoding="utf-8") as fi:
-                lines = fi.read().splitlines()
-                random_lines = lines[len(lines)//2:len(lines)//2+40]
-                random_lines_alpha = [line for line in random_lines if not any(map(str.isdigit, line))]
-                random_lines_alpha_no_empty = [line for line in random_lines_alpha if line]
-                join_text = " ".join(random_lines_alpha_no_empty)
-                join_text = join_text.replace("</i>", "").replace("<i>", "")
-                language_detected_abbrev = detect(join_text)
-                if language_detected_abbrev in MAP_LANGUAGES:
-                    language_detected = MAP_LANGUAGES[language_detected_abbrev]
-                    if language_detected in languages:
-                        cleaned_lines = clean_sub(lines)
-                        new_name = str_fpath.replace(os.path.basename(str_fpath), language_detected + ".srt")
-                        with codecs.open(new_name, "w", "utf-8") as fo:
-                            for line in cleaned_lines:
-                                fo.write(line + "\n")
+    for srt_fpath in srt_fpaths:
+        with open(str_fpath, "r", encoding="utf-8") as fi:
+            lines = fi.read().splitlines()
+        random_lines = lines[len(lines)//2:len(lines)//2+40]
+        random_lines_alpha = [line for line in random_lines if not any(map(str.isdigit, line))]
+        random_lines_alpha_no_empty = [line for line in random_lines_alpha if line]
+        join_text = " ".join(random_lines_alpha_no_empty)
+        join_text = join_text.replace("</i>", "").replace("<i>", "")
+        language_detected_abbrev = detect(join_text)
+        if language_detected_abbrev in MAP_LANGUAGES:
+            language_detected = MAP_LANGUAGES[language_detected_abbrev]
+            if language_detected in languages:
+                cleaned_lines = clean_sub(lines)
+                new_name = str_fpath.replace(os.path.basename(str_fpath), language_detected + ".srt")
+                with codecs.open(new_name, "w", "utf-8") as fo:
+                    for line in cleaned_lines:
+                        fo.write(line + "\n")
 
-                        srt_to_add.append(new_name)
-                        lang_code_to_add.append(language_detected)
-        except UnicodeDecodeError:
-            print("Can't open {} because of UnicodeDecodeError".format(str_fpath))
-            continue
+                srt_to_add.append(new_name)
+                lang_code_to_add.append(language_detected)
     return srt_to_add, lang_code_to_add
 
 
@@ -107,16 +102,16 @@ def get_existing_srt(folder, basename):
     return list_str
 
 def get_embedded_str(mkv_full_path, track_id_int):
+    srt_full_paths = []
     if track_id_int >= 2:
         track_ids = [str(num) for num in range(2, track_id_int + 1)]
-    else:
-        return []
 
-    for srt_track_id in track_ids:
-        srt_full_path = os.path.join(root, basename + "_{}_.srt".format(_id))
-        extract_mkv_subs(mkv_full_path, srt_track_id, srt_full_path)
+        for srt_track_id in track_ids:
+            srt_full_path = os.path.join(root, basename + "_{}_.srt".format(_id))
+            extract_mkv_subs(mkv_full_path, srt_track_id, srt_full_path)
+            srt_full_paths.append(srt_full_path)
 
-    return str_file_list
+    return srt_full_paths
 
 
 def main(folder, languages):
@@ -129,9 +124,9 @@ def main(folder, languages):
                 full_fname_mkv = os.path.join(root, fname)
                 track_id_int = int(get_mkv_track_id(os.path.join(root, fname)))
 
-                existing_list_str = get_existing_srt(root, basename)
-                embedded_list_str = get_embedded_str(mkv_full_path, track_id_int)
-                list_str = existing_list_str + embedded_list_str
+                existing_list_srt = get_existing_srt(root, basename)
+                embedded_list_srt = get_embedded_str(mkv_full_path, track_id_int)
+                srt_fpaths = existing_list_srt + embedded_list_srt
 
                 full_fname_no_sub = full_fname_mkv.replace(".mkv", "_no_sub.mkv")
                 full_fname_with_sub = full_fname_mkv.replace(".mkv", "_with_sub.mkv")
@@ -139,7 +134,7 @@ def main(folder, languages):
                 # Copies the .mkv files without subtitles in it
                 remove_mkv_subs(full_fname_mkv, full_fname_no_sub)
                 # Clean all .srt files and rename according to language
-                srt_to_add, lang_code_to_add = clean_and_rename_subs(str_file_list, languages)
+                srt_to_add, lang_code_to_add = clean_and_rename_subs(srt_fpaths, languages)
                 # Add .srt files to .mkv
                 add_subs(full_fname_no_sub, full_fname_with_sub, srt_to_add)
                 # Add language title to .mkv
@@ -149,10 +144,9 @@ def main(folder, languages):
                 os.remove(full_fname_no_sub)
                 os.remove(full_fname_with_sub)
                 os.rename(full_fname_with_sub_and_lang, full_fname_mkv)
-                # Remove all .srt
-                for item in os.listdir(root):
-                    if item.endswith(".srt"):
-                        os.remove(os.path.join(root, item))
+                # Remove all .srt in srt_fpaths
+                for str_fpath in srt_fpaths:
+                    os.remove(os.path.join(root, item))
 
 
 def parse_args():
