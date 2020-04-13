@@ -7,28 +7,29 @@ import codecs
 import re
 import glob
 from tqdm import tqdm
+import tempfile
+import json
+
 
 CHAR_TUPLES_TO_REMOVE = {
     ("[", "]")
 }
 
 
-def remove_mkv_subs(full_fname_mkv, full_fname_no_sub):
-    print("2. Removing subtitles from original .mkv file")
-    subprocess.check_output([".\mkvmerge.bat", "-o", full_fname_no_sub, "--no-subtitles", full_fname_mkv],
+def remove_mkv_subs(fpath_mkv, fpath_mkv_no_sub):
+    subprocess.check_output([".\mkvmerge.bat", "-o", fpath_mkv_no_sub, "--no-subtitles", fpath_mkv],
                             stderr=subprocess.STDOUT)
 
 
-def extract_mkv_subs(mkv_full_path, srt_track_id, srt_full_path):
+def extract_fpath_mkv_subs(mkv_full_path, srt_track_id, srt_full_path):
     subprocess.check_output([".\mkvextract.bat", "tracks", mkv_full_path,
                              srt_track_id + ":" + srt_full_path],
                                         stderr=subprocess.STDOUT)
 
 
-def add_subs(full_fname_no_sub, full_fname_with_sub, srt_to_add):
-    print("4. Adding subtitles")
-    subprocess.check_output([".\mkvmerge.bat", "-o", full_fname_with_sub,
-                            full_fname_no_sub] + srt_to_add,
+def add_subs(fpath_mkv_no_sub, fpath_mkv_sub, selected_srts):
+    subprocess.check_output([".\mkvmerge.bat", "-o", fpath_mkv_sub,
+                            fpath_mkv_no_sub] + selected_srts,
                                         stderr=subprocess.STDOUT)
 
 
@@ -46,47 +47,49 @@ def get_mkv_track_id(file_path):
 
 
 def clean_and_rename_subs(srt_fpaths, languages, languages_per_iso_code):
-    print("3. Opening SRT files to select the languages")
-    srt_to_add = []
-    lang_code_to_add = []
-    for srt_fpath in srt_fpaths:
-        with open(str_fpath, "r", encoding="utf-8") as fi:
+    selected_srts = []
+    selected_lang = []
+    all_srt = srt_fpaths.copy()
+    for srt_fpath in tqdm(srt_fpaths):
+        with open(srt_fpath, "r", encoding="utf-8") as fi:
             lines = fi.read().splitlines()
         random_lines = lines[len(lines)//2:len(lines)//2+40]
         random_lines_alpha = [line for line in random_lines if not any(map(str.isdigit, line))]
         random_lines_alpha_no_empty = [line for line in random_lines_alpha if line]
         join_text = " ".join(random_lines_alpha_no_empty)
         join_text = join_text.replace("</i>", "").replace("<i>", "")
-        language_detected_abbrev = detect(join_text)
-        if language_detected_abbrev in languages_per_iso_code:
-            language_detected = languages_per_iso_code[language_detected_abbrev]
-            if language_detected in languages:
-                cleaned_lines = clean_sub(lines)
-                new_name = str_fpath.replace(os.path.basename(str_fpath), language_detected + ".srt")
-                with codecs.open(new_name, "w", "utf-8") as fo:
-                    for line in cleaned_lines:
-                        fo.write(line + "\n")
+        language_detected_639_1 = detect(join_text)
+        if language_detected_639_1 in languages_per_iso_code:
+            language_name = languages_per_iso_code[language_detected_639_1]["name"]
+            if language_name in languages:
+                new_name = clean_and_save_sub(lines, srt_fpath, language_name)
+                selected_srts.append(new_name)
+                all_srt.append(new_name)
+                selected_lang.append(language_name)
 
-                srt_to_add.append(new_name)
-                lang_code_to_add.append(language_detected)
-    return srt_to_add, lang_code_to_add
+    return selected_srts, selected_lang, all_srt
 
 
-def clean_sub(lines):
+def clean_and_save_sub(lines, srt_fpath, language_name):
+
     for char_tuple in CHAR_TUPLES_TO_REMOVE:
         open_char = char_tuple[0]
         close_char = char_tuple[1]
         cleaned_lines = [re.sub(r"\o[^)]*\c".replace("o", open_char).replace("c", close_char), "", line) for line in lines]
 
-    return cleaned_lines
+    new_name = srt_fpath.replace(os.path.basename(srt_fpath), language_name + ".srt")
+    with codecs.open(new_name, "w", "utf-8") as fo:
+        for line in cleaned_lines:
+            fo.write(line + "\n")
+
+    return new_name
 
 
-def add_language_titles(full_fname_with_sub, full_fname_with_sub_and_lang, lang_code_to_add):
-    print("5. Adding language titles")
-    lang_ids = [str(i+2) + ":" + code for i, code in enumerate(lang_code_to_add)]
+def add_language_titles(fpath_mkv_sub, fpath_mkv_sub_lang, selected_lang, iso_codes_per_language):
+    lang_ids = [iso_codes_per_language[lang] for lang in selected_lang]
+    lang_ids = [str(i+2) + ":" + lang_id for i, lang_id in enumerate(lang_ids)]
     list_languages_parsed = " ".join(["--language " + lang_id for lang_id in lang_ids]).split(" ")
-    list_subprocess = [".\mkvmerge.bat", "-o", full_fname_with_sub_and_lang, *list_languages_parsed, full_fname_with_sub]
-
+    list_subprocess = [".\mkvmerge.bat", "-o", fpath_mkv_sub_lang, *list_languages_parsed, fpath_mkv_sub]
     subprocess.check_output(list_subprocess, stderr=subprocess.STDOUT)
 
 
@@ -95,76 +98,71 @@ def get_existing_srt(folder, basename):
     list_str = [os.path.join(folder, file) for file in files_in_dir if os.path.splitext(file)[1] == ".srt" and basename in os.path.splitext(file)[0]]
     return list_str
 
-def get_embedded_str(mkv_full_path, track_id_int):
+
+def get_embedded_str(root, basename, mkv_full_path, track_id_int):
     srt_full_paths = []
     if track_id_int >= 2:
         track_ids = [str(num) for num in range(2, track_id_int + 1)]
 
-        for srt_track_id in track_ids:
-            srt_full_path = os.path.join(root, basename + "_{}_.srt".format(_id))
-            extract_mkv_subs(mkv_full_path, srt_track_id, srt_full_path)
+        for srt_track_id in tqdm(track_ids):
+            srt_full_path = os.path.join(root, basename + "_{}_.srt".format(srt_track_id))
+            extract_fpath_mkv_subs(mkv_full_path, srt_track_id, srt_full_path)
             srt_full_paths.append(srt_full_path)
 
     return srt_full_paths
 
 
-def get_languages_map():
-    raw_info = subprocess.check_output([".\mkvmerge.bat", "--list-languages"],
-                                       stderr=subprocess.STDOUT)
-    raw_info_str = raw_info.decode("utf-8")
-    cleaned_lines = [line.replace(" ", "")for line in raw_info_str.split("\r\n")]
-    languages_per_iso_code = {}
-    for line in cleaned_lines:
-        if "|" in line:
-            language_split = line.split("|")
-            if len(language_split) == 3:
-                languages_per_iso_code[language_split[2]] = language_split[0]
-            languages_per_iso_code[language_split[1]] = language_split[0]
+def main(movies_dirpath, languages):
+    """ Main script
 
-    return languages_per_iso_code
+    Args:
+        movies_dirpath (str): dirpath containing all movies
+        languages (list[str]): subs languages to keep
+    """
 
+    with open("iso_map.json", encoding="utf-8") as fi:
+        languages_per_iso_code = json.load(fi)
+    iso_codes_per_language = {lang["name"]: lang["639-2"] for _, lang in languages_per_iso_code.items()}
 
-def main(folder, languages):
-
-    print("0. Get ISO 639-1 languages codes")
-    languages_per_iso_code= get_languages_map()
-    for root, dirs, files in os.walk(folder):
+    for root, dirs, files in os.walk(movies_dirpath):
         for fname in files:
 
             basename, ext = os.path.splitext(fname)
             if ext == ".mkv":
 
-                full_fname_mkv = os.path.join(root, fname)
+                fpath_mkv = os.path.join(root, fname)
                 track_id_int = int(get_mkv_track_id(os.path.join(root, fname)))
 
-                existing_list_srt = get_existing_srt(root, basename)
-                embedded_list_srt = get_embedded_str(mkv_full_path, track_id_int)
-                srt_fpaths = existing_list_srt + embedded_list_srt
-
-                full_fname_no_sub = full_fname_mkv.replace(".mkv", "_no_sub.mkv")
-                full_fname_with_sub = full_fname_mkv.replace(".mkv", "_with_sub.mkv")
-                full_fname_with_sub_and_lang = full_fname_mkv.replace(".mkv", "_with_sub_and_lang.mkv")
-                # Copies the .mkv files without subtitles in it
-                remove_mkv_subs(full_fname_mkv, full_fname_no_sub)
-                # Clean all .srt files and rename according to language
-                srt_to_add, lang_code_to_add = clean_and_rename_subs(srt_fpaths, languages, languages_per_iso_code)
-                # Add .srt files to .mkv
-                add_subs(full_fname_no_sub, full_fname_with_sub, srt_to_add)
-                # Add language title to .mkv
-                add_language_titles(full_fname_with_sub, full_fname_with_sub_and_lang, lang_code_to_add)
-                # Remove temp files
-                os.remove(full_fname_mkv)
-                os.remove(full_fname_no_sub)
-                os.remove(full_fname_with_sub)
-                for str_fpath in srt_fpaths:
-                    os.remove(os.path.join(root, item))
-                os.rename(full_fname_with_sub_and_lang, full_fname_mkv)
+                print("1. Extract srt files")
+                existing_srts = get_existing_srt(root, basename)
+                embedded_srts = get_embedded_str(root, basename, fpath_mkv, track_id_int)
+                srt_fpaths = existing_srts + embedded_srts
+                if srt_fpaths:
+                    fpath_mkv_no_sub = fpath_mkv.replace(".mkv", "_no_sub.mkv")
+                    fpath_mkv_sub = fpath_mkv.replace(".mkv", "_sub.mkv")
+                    fpath_mkv_sub_lang = fpath_mkv.replace(".mkv", "_sub_lang.mkv")
+                    print("2. Removing subtitles from original .mkv file")
+                    remove_mkv_subs(fpath_mkv, fpath_mkv_no_sub)
+                    print("3. Opening SRT files to select the languages")
+                    selected_srts, selected_lang, all_srt = clean_and_rename_subs(srt_fpaths, languages, languages_per_iso_code)
+                    print("4. Adding subtitles")
+                    add_subs(fpath_mkv_no_sub, fpath_mkv_sub, selected_srts)
+                    print("5. Adding language titles")
+                    add_language_titles(fpath_mkv_sub, fpath_mkv_sub_lang, selected_lang, iso_codes_per_language)
+                    print("6. Remove temp files")
+                    os.remove(fpath_mkv)
+                    os.remove(fpath_mkv_sub)
+                    os.remove(fpath_mkv_sub_lang)
+                    for str_fpath in all_srt:
+                        os.remove(str_fpath)
+                    os.rename(fpath_mkv_sub_lang, fpath_mkv)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--folder", default="subs")
-    parser.add_argument("--languages", default=["english", "spanish", "french"])
+    parser.add_argument("--movies_dirpath", default="subs")
+    parser.add_argument("--languages", default=["English", "Spanish", "French"],
+                        help="The ISO 639 norm requires capitalized language names")
     args = parser.parse_args()
     return args
 
@@ -172,7 +170,7 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    folder = args.folder
+    movies_dirpath = args.movies_dirpath
     languages = args.languages
 
-    main(folder=folder, languages=languages)
+    main(movies_dirpath=movies_dirpath, languages=languages)
