@@ -1,7 +1,7 @@
 Setup for MS Windows
 
 # Description
-This script removes all brackets areas (e.g. **[scary music]**) on subtitles located within .mkv files as well as in the same directory (provided the basename of the .mkv is contained in the .srt file).
+This script removes all brackets areas (e.g. **[scary music]**) on subtitles located within .mkv files as well as in the same directory (provided the basename of the .mkv is contained in the .srt file). It also selects a set of languages to keep and discards the others.
 
 # Setup
 1. Requirements listed in the requirements.txt file 
