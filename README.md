@@ -15,9 +15,14 @@ https://mkvtoolnix.download/downloads.html
 - mkvmerge.bat<br/>
 In each of them, you will find a path to where the MKVToolNix got installed. If it is located in a different place in your computer, change the paths in those files.
 # Run
-Simply run the script with python.<br/>2 flags are available:<br/>
+Simply run the script with python.<br/>3 flags are available:<br/>
 --movies_dirpath: folder where the .mkv files are located<br/>
 --languages: list of languages you want to keep and clean (as ISO 639-1 Format of Language Name, e.g. "French")
+--overwrite_all_files: bool to overwrite all original files instead of deciding individually
 
 # Expected use:
 ![Image of logs](https://i.ibb.co/PrKg5WV/logs.png)
+
+
+# Warning:
+MKVToolNix does not allow overwriting files, so make sure you have enough space to run the script (~2x the size of your biggest movie).
