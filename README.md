@@ -4,7 +4,7 @@ This script removes all [] parts on subtitles located within .mkv files as well 
 # Setup
 1. Requirements listed in the requirements.txt file 
 
-2. The script also requires the software MKVToolNix that can be downloaded there: 
+2. The script is built upon MKVToolNix that can be downloaded there: 
 https://mkvtoolnix.download/downloads.html
 
 3. Once it is downloaded, you might have to change the 3 following files of the repo:
