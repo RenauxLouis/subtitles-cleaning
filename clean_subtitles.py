@@ -1,12 +1,12 @@
 import argparse
-import os
-import subprocess
-from langdetect import detect
 import codecs
-import re
-from tqdm import tqdm
 import json
+import os
+import re
+import subprocess
 
+from langdetect import detect
+from tqdm import tqdm
 
 CHAR_TUPLES_TO_REMOVE = {
     ("[", "]")
