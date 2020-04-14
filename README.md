@@ -17,8 +17,5 @@ Simply run the script with python. 2 flags are available:
 --languages: list of languages you want to keep and clean (as ISO 639-1 Format of Language Name, eg. "French")
 --folder: folder where the .mkv files are located
 
-Command example:
-python clean_subtitles --folder movies_folder --languages English Spanish French
-
-Expected logs:
-![Image of logs](https://i.ibb.co/ThDQ8mV/logs.png)
+# Expected use:
+![Image of logs](https://i.ibb.co/PrKg5WV/logs.png)
