@@ -1,7 +1,7 @@
 Setup for MS Windows
 
 # Description
-This script removes all [] parts on subtitles located within .mkv files as well as in the same directory (provided the basename of the .mkv is contained in the .srt file).
+This script removes all brackets areas (e.g. [scary music]) on subtitles located within .mkv files as well as in the same directory (provided the basename of the .mkv is contained in the .srt file).
 
 # Setup
 1. Requirements listed in the requirements.txt file 
@@ -13,11 +13,11 @@ https://mkvtoolnix.download/downloads.html
 - mkvextract.bat
 - mkvinfo.bat
 - mkvmerge.bat<br/>
-In each of them, you will find a path to where the MKVToolNix got installed. If it is located in a different place in you computer, change the paths in those files.
+In each of them, you will find a path to where the MKVToolNix got installed. If it is located in a different place in your computer, change the paths in those files.
 # Run
-Simply run the script with python. 2 flags are available:<br/>
+Simply run the script with python.<br/>2 flags are available:<br/>
 --movies_dirpath: folder where the .mkv files are located<br/>
---languages: list of languages you want to keep and clean (as ISO 639-1 Format of Language Name, eg. "French")
+--languages: list of languages you want to keep and clean (as ISO 639-1 Format of Language Name, e.g. "French")
 
 # Expected use:
 ![Image of logs](https://i.ibb.co/PrKg5WV/logs.png)
