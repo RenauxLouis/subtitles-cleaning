@@ -8,7 +8,10 @@ This script removes all [] parts on subtitles located within .mkv files as well 
 https://mkvtoolnix.download/downloads.html
 
 3. Once it is downloaded, you might have to change the 3 following files of the repo:
-
+- mkvextract.bat
+- mkvinfo.bat
+- mkvmerge.bat
+In each of them, you will find a path to where the MKVToolNix got installed. If it is located in a different place in you computer, change the paths in those files.
 # Run
 Simply run the script with python. 2 flags are available:
 --languages: list of languages you want to keep and clean (as ISO 639-1 Format of Language Name, eg. "French")
@@ -16,3 +19,6 @@ Simply run the script with python. 2 flags are available:
 
 Command example:
 python clean_subtitles --folder movies_folder --languages English Spanish French
+
+Expected logs:
+![Image of logs](https://imgur.com/a/kvy4UUt)
