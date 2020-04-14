@@ -14,33 +14,35 @@ CHAR_TUPLES_TO_REMOVE = {
 
 
 def remove_mkv_subs(fpath_mkv, fpath_mkv_no_sub):
-    subprocess.check_output([".\mkvmerge.bat", "-o", fpath_mkv_no_sub,
-                             "--no-subtitles", fpath_mkv],
+    subprocess.check_output([r".\batch_files\mkvmerge.bat", "-o",
+                             fpath_mkv_no_sub, "--no-subtitles", fpath_mkv],
                             stderr=subprocess.STDOUT)
 
 
 def extract_fpath_mkv_subs(mkv_fpath, srt_track_id, srt_full_path):
-    subprocess.check_output([".\mkvextract.bat", "tracks", mkv_fpath,
-                             srt_track_id + ":" + srt_full_path],
+    subprocess.check_output([r".\batch_files\mkvextract.bat", "tracks",
+                             mkv_fpath, srt_track_id + ":" + srt_full_path],
                             stderr=subprocess.STDOUT)
 
 
 def add_subs(fpath_mkv_no_sub, fpath_mkv_sub, selected_srts):
-    subprocess.check_output([".\mkvmerge.bat", "-o", fpath_mkv_sub,
-                            fpath_mkv_no_sub] + selected_srts,
+    subprocess.check_output([r".\batch_files\mkvmerge.bat", "-o",
+                             fpath_mkv_sub, fpath_mkv_no_sub] + selected_srts,
                             stderr=subprocess.STDOUT)
+    os.remove(fpath_mkv_no_sub)
 
 
 def get_mkv_track_id(mkv_fpath):
     """ Returns the track ID of the SRT subtitles track
 
     Args:
-        mkv_fpath (str): filepath of .mkv file
+        mkv_fpath (str): file path of .mkv file
 
     Returns:
         str: number of track ids found in the .mkv file
     """
-    raw_info = subprocess.check_output([".\mkvmerge.bat", "-i", mkv_fpath],
+    raw_info = subprocess.check_output([r".\batch_files\mkvmerge.bat", "-i",
+                                        mkv_fpath],
                                        stderr=subprocess.STDOUT)
 
     pattern = re.compile(".* (\d+): subtitles \(SubRip/SRT\).*", re.DOTALL)
@@ -133,9 +135,10 @@ def add_language_titles(fpath_mkv_sub, fpath_mkv_sub_lang, selected_lang,
     lang_ids = [str(i+2) + ":" + lang_id for i, lang_id in enumerate(lang_ids)]
     list_languages_parsed = " ".join([
         "--language " + lang_id for lang_id in lang_ids]).split(" ")
-    list_subprocess = [".\mkvmerge.bat", "-o", fpath_mkv_sub_lang,
+    list_subprocess = [r".\batch_files\mkvmerge.bat", "-o", fpath_mkv_sub_lang,
                        *list_languages_parsed, fpath_mkv_sub]
     subprocess.check_output(list_subprocess, stderr=subprocess.STDOUT)
+    os.remove(fpath_mkv_sub)
 
 
 def get_existing_srt(dirpath, basename):
@@ -172,36 +175,44 @@ def get_embedded_srt(dirpath, mkv_fpath, track_ids_as_int):
         track_ids = [str(num) for num in range(2, track_ids_as_int + 1)]
 
         for srt_track_id in tqdm(track_ids):
-            srt_full_path = os.path.join(dirpath, os.path.basename(
-                mkv_fpath) + "_{}_.srt".format(srt_track_id))
+            srt_full_path = mkv_fpath.replace(
+                ".mkv", "_{}.srt".format(srt_track_id))
             extract_fpath_mkv_subs(mkv_fpath, srt_track_id, srt_full_path)
             srt_full_paths.append(srt_full_path)
 
     return srt_full_paths
 
 
-def main(movies_dirpath, languages):
+def overwrite_file(fpath_mkv, fpath_mkv_sub_lang):
+    print("7. Overwriting original file")
+    os.remove(fpath_mkv)
+    os.rename(fpath_mkv_sub_lang, fpath_mkv)
+
+
+def main(videos_dirpath, languages, overwrite_all_files):
     """ Main script
 
     Args:
-        movies_dirpath (str): dirpath containing all movies
+        videos_dirpath (str): dirpath containing all videos
         languages (list[str]): subs languages to keep
     """
 
-    with open("iso_map.json", encoding="utf-8") as fi:
+    with open("lookup_tables/iso_map.json", encoding="utf-8") as fi:
         languages_per_iso_code = json.load(fi)
     iso_codes_per_language = {lang["name"]: lang[
         "639-2"] for _, lang in languages_per_iso_code.items()}
 
-    for root, dirs, files in os.walk(movies_dirpath):
+    for root, dirs, files in os.walk(videos_dirpath):
         for fname in files:
 
             basename, ext = os.path.splitext(fname)
             if ext == ".mkv":
 
                 fpath_mkv = os.path.join(root, fname)
-                track_ids_as_int = int(get_mkv_track_id(os.path.join(root,
-                                                                     fname)))
+                print("\n" + "#"*44)
+                print("Clean subtitles of {}".format(fpath_mkv))
+                track_ids_as_int = int(get_mkv_track_id(
+                    os.path.join(fpath_mkv)))
 
                 print("1. Extract srt files")
                 existing_srts = get_existing_srt(root, basename)
@@ -212,7 +223,7 @@ def main(movies_dirpath, languages):
                     fpath_mkv_no_sub = fpath_mkv.replace(".mkv", "_no_sub.mkv")
                     fpath_mkv_sub = fpath_mkv.replace(".mkv", "_sub.mkv")
                     fpath_mkv_sub_lang = fpath_mkv.replace(".mkv",
-                                                           "_sub_lang.mkv")
+                                                           "_cleaned.mkv")
                     print("2. Removing subtitles from original .mkv file")
                     remove_mkv_subs(fpath_mkv, fpath_mkv_no_sub)
                     print("3. Opening SRT files to select the languages")
@@ -224,21 +235,29 @@ def main(movies_dirpath, languages):
                     print("5. Adding language titles")
                     add_language_titles(fpath_mkv_sub, fpath_mkv_sub_lang,
                                         selected_lang, iso_codes_per_language)
-                    print("6. Remove temp files")
-                    os.remove(fpath_mkv)
-                    os.remove(fpath_mkv_no_sub)
-                    os.remove(fpath_mkv_sub)
+                    print("6. Remove temp .srt files")
                     for str_fpath in all_srt:
                         os.remove(str_fpath)
-                    os.rename(fpath_mkv_sub_lang, fpath_mkv)
+                    if overwrite_all_files:
+                        overwrite_file(fpath_mkv, fpath_mkv_sub_lang)
+                    else:
+                        flag_overwrite_file = input(
+                            "Do you want to overwrite the "
+                            "original file {}? (y/n) ".format(fpath_mkv))
+                        if flag_overwrite_file.lower().replace(" ", "") == "y":
+                            overwrite_file(fpath_mkv, fpath_mkv_sub_lang)
+                print("#"*44 + "\n")
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--movies_dirpath", default="subs")
+    parser.add_argument("--videos_dirpath", type=str, required=True)
     parser.add_argument(
-        "--languages", default=["English", "Spanish", "French"],
+        "--languages", nargs="+", required=True,
         help="The ISO 639 language names are capitalized")
+    parser.add_argument(
+        "--overwrite_all_files", type=bool, required=False,
+        help="Flag to overwrite all original files that get cleaned")
     args = parser.parse_args()
     return args
 
@@ -246,7 +265,9 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    movies_dirpath = args.movies_dirpath
+    videos_dirpath = args.videos_dirpath
     languages = args.languages
+    overwrite_all_files = args.overwrite_all_files
 
-    main(movies_dirpath=movies_dirpath, languages=languages)
+    main(videos_dirpath=videos_dirpath, languages=languages,
+         overwrite_all_files=overwrite_all_files)
