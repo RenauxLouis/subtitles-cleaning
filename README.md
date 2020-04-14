@@ -21,7 +21,7 @@ Simply run the script with python.<br/>3 flags are available:<br/>
 --overwrite_all_files: bool to overwrite all original files instead of deciding individually
 
 # Expected use:
-![Image of logs](https://i.ibb.co/PrKg5WV/logs.png)
+![Image of logs](https://i.ibb.co/HP6rQpx/logs.png)
 
 
 # Warning:
