@@ -12,12 +12,12 @@ https://mkvtoolnix.download/downloads.html
 3. Once it is downloaded, you might have to change the 3 following files of the repo located in the **batch_files** folder:
 - mkvextract.bat
 - mkvinfo.bat
-- mkvmerge.bat
+- mkvmerge.bat<br/>
 In each of them, you will find a path to where the MKVToolNix got installed. If it is located in a different place in you computer, change the paths in those files.
 # Run
-Simply run the script with python. 2 flags are available:
+Simply run the script with python. 2 flags are available:<br/>
+--movies_dirpath: folder where the .mkv files are located<br/>
 --languages: list of languages you want to keep and clean (as ISO 639-1 Format of Language Name, eg. "French")
---folder: folder where the .mkv files are located
 
 # Expected use:
 ![Image of logs](https://i.ibb.co/PrKg5WV/logs.png)
