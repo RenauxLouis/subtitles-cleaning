@@ -46,10 +46,6 @@ def get_mkv_track_id(mkv_fpath):
     pattern = re.compile(".* (\d+): subtitles \(SubRip/SRT\).*", re.DOTALL)
     m = pattern.match(str(raw_info))
     if m:
-        print(type(m))
-        print(m)
-        print(type(m.group(1)))
-        print(m.group(1))
         return m.group(1)
     else:
         raise Exception("Extraction of track ID failed")
@@ -90,7 +86,7 @@ def clean_and_rename_subs(srt_fpaths, languages, languages_per_iso_code):
                 selected_srts.append(new_name)
                 selected_lang.append(language_name)
 
-    all_srt = srt_fpaths.extend(selected_srts)
+    all_srt = srt_fpaths + selected_srts
 
     return selected_srts, selected_lang, all_srt
 
@@ -230,8 +226,8 @@ def main(movies_dirpath, languages):
                                         selected_lang, iso_codes_per_language)
                     print("6. Remove temp files")
                     os.remove(fpath_mkv)
+                    os.remove(fpath_mkv_no_sub)
                     os.remove(fpath_mkv_sub)
-                    os.remove(fpath_mkv_sub_lang)
                     for str_fpath in all_srt:
                         os.remove(str_fpath)
                     os.rename(fpath_mkv_sub_lang, fpath_mkv)
