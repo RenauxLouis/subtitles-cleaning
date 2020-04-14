@@ -21,4 +21,4 @@ Command example:
 python clean_subtitles --folder movies_folder --languages English Spanish French
 
 Expected logs:
-![Image of logs](https://ibb.co/vzCNPZ7)
+![Image of logs](https://i.ibb.co/ThDQ8mV/logs.png)
