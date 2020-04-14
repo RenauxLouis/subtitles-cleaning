@@ -17,7 +17,7 @@ In each of them, you will find a path to where the MKVToolNix got installed. If 
 # Run
 Simply run the script with python.<br/>3 flags are available:<br/>
 --movies_dirpath: folder where the .mkv files are located<br/>
---languages: list of languages you want to keep and clean (as ISO 639-1 Format of Language Name, e.g. "French")
+--languages: list of languages you want to keep and clean (as [ISO 639-1 Format](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) of Language Name, e.g. "French")
 --overwrite_all_files: bool to overwrite all original files instead of deciding individually
 
 # Expected use:
