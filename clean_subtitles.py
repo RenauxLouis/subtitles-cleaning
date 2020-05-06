@@ -50,7 +50,8 @@ def get_mkv_track_id(mkv_fpath):
     if m:
         return m.group(1)
     else:
-        raise Exception("Extraction of track ID failed")
+        print("No subtitles found within the mkv")
+        return 0
 
 
 def clean_and_rename_subs(srt_fpaths, languages, languages_per_iso_code):
@@ -237,7 +238,8 @@ def main(videos_dirpath, languages, overwrite_all_files):
                                         selected_lang, iso_codes_per_language)
                     print("6. Remove temp .srt files")
                     for str_fpath in all_srt:
-                        os.remove(str_fpath)
+                        if os.path.exists(str_fpath):
+                            os.remove(str_fpath)
                     if overwrite_all_files:
                         overwrite_file(fpath_mkv, fpath_mkv_sub_lang)
                     else:
